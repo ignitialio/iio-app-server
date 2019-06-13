@@ -1,0 +1,42 @@
+{
+  "name": "@ignitial/iio-app-server",
+  "version": "5.0.0",
+  "description": "Ignitial.io Application server library",
+  "author": "Victor Andritoiu <andritoiu@ignitial.fr>",
+  "repository": "git@gitlab.com:iio-core/iio-app-server.git",
+  "main": "src/index.js",
+  "scripts": {
+    "test": "node ./test/index.js",
+    "lint": "eslint --ext .js src"
+  },
+  "dependencies": {
+    "@ignitial/iio-services": "^2.1.2",
+    "axios": "^0.19.0",
+    "bcryptjs": "^2.4.3",
+    "body-parser": "^1.19.0",
+    "connect": "^3.7.0",
+    "connect-multiparty": "^2.2.0",
+    "connect-rest": "^3.0.29",
+    "cors": "^2.8.5",
+    "cpu-stats": "^1.0.0",
+    "jsonwebtoken": "^8.5.1",
+    "minio": "^7.0.10",
+    "nodemailer": "^6.2.1",
+    "pino": "^5.12.6",
+    "serve-static": "^1.14.1",
+    "socket.io": "^2.2.0",
+    "socket.io-stream": "^0.9.1",
+    "urlencode": "^1.1.0"
+  },
+  "devDependencies": {
+    "babel-eslint": "^9.0.0",
+    "eslint": "^4.19.1",
+    "eslint-config-standard": "^10.2.1",
+    "eslint-friendly-formatter": "^3.0.0",
+    "eslint-plugin-import": "^2.17.3",
+    "eslint-plugin-node": "^5.2.0",
+    "eslint-plugin-promise": "^3.8.0",
+    "eslint-plugin-standard": "^3.1.0"
+  },
+  "license": "MIT"
+}

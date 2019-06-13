@@ -1,0 +1,138 @@
+<!DOCTYPE html>
+<html lang="fr">
+  <head>
+    <meta charset="utf-8">
+    <title>IgnitialIO</title>
+
+    <meta name="viewport" content="width=device-width,initial-scale=1,minimal-ui">
+    <meta name=mobile-web-app-capable content=yes>
+    <meta name=apple-mobile-web-app-capable content=yes>
+    <meta name=apple-mobile-web-app-status-bar-style content=black>
+    <meta name=apple-mobile-web-app-title content="IgnitialIO">
+
+    <link rel="stylesheet" href="//fonts.googleapis.com/css?family=Roboto:300,400,500,700,400italic">
+    <link rel="stylesheet" href="//fonts.googleapis.com/icon?family=Material+Icons">
+ 
+    <style>
+      .centered-splash {
+        position: absolute;
+        top: 0;
+        bottom: 0;
+        left: 0;
+        right: 0;
+        display: flex;
+        justify-content: center;
+        align-items:
+        center;
+        transition: opacity 1s;
+      }
+
+      #progress {
+        color: rgba(255, 255, 255, 0.2);
+        font-weight: bold;
+        font-size: 2em;
+      }
+
+      .app-splash-logo {
+        width: 64px;
+        height: 64px;
+        background-image: url(assets/ignitialio-64.png);
+      }
+    </style>
+  </head>
+  <body>
+    <div id="splashscreen">
+      <div class="centered-splash">
+        <div class="app-splash-logo"></div>
+      </div>
+      <div class="centered-splash">
+        <div class="triple-spinner"></div>
+      </div>
+      <style type="text/css">
+        .triple-spinner {
+          display: block;
+          position: relative;
+          width: 125px;
+          height: 125px;
+          border-radius: 50%;
+          border: 4px solid transparent;
+          border-top: 4px solid #FF5722;
+          -webkit-animation: spin 2s linear infinite;
+          animation: spin 2s linear infinite;
+        }
+
+        .triple-spinner::before,
+        .triple-spinner::after {
+          content: "";
+          position: absolute;
+          border-radius: 50%;
+          border: 4px solid transparent;
+        }
+        .triple-spinner::before {
+          top: 5px;
+          left: 5px;
+          right: 5px;
+          bottom: 5px;
+          border-top-color: #FF9800;
+          -webkit-animation: spin 3s linear infinite;
+          animation: spin 3.5s linear infinite;
+        }
+        .triple-spinner::after {
+          top: 15px;
+          left: 15px;
+          right: 15px;
+          bottom: 15px;
+          border-top-color: #FFC107;
+          -webkit-animation: spin 1.5s linear infinite;
+          animation: spin 1.75s linear infinite;
+        }
+
+        @-webkit-keyframes spin {
+            from {
+              -webkit-transform: rotate(0deg);
+              transform: rotate(0deg);
+            }
+            to {
+              -webkit-transform: rotate(360deg);
+              transform: rotate(360deg);
+            }
+          }
+
+
+        @keyframes spin {
+            from {
+              -webkit-transform: rotate(0deg);
+              transform: rotate(0deg);
+            }
+            to {
+              -webkit-transform: rotate(360deg);
+              transform: rotate(360deg);
+            }
+          }
+
+      </style>
+    </div>
+
+    <div id="progress" class="centered-splash"></div>
+
+    <div id="app"></div>
+
+    <script>
+      var checkTimeout
+
+      var checkInterval = setInterval(() => {
+        if (window.Vue) {
+          clearInterval(checkInterval)
+          clearTimeout(checkTimeout) // nothing if undefined
+          console.log('loaded')
+        }
+      }, 100)
+
+      checkTimeout = setTimeout(() => {
+        if (checkInterval) {
+          clearInterval(checkInterval)
+        }
+      }, 15000)
+    </script>
+  </body>
+</html>
