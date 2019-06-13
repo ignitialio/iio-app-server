@@ -73,7 +73,7 @@ class APIGateway extends Service {
           let service = gateway.services[request.parameters.service]
 
           let protocol =
-            service.options.httpServer.https ? 'https://' : 'http://'
+            service.httpServer.https ? 'https://' : 'http://'
 
           let url = protocol + service.httpServer.host +
             ':' + service.httpServer.port + '/' +
