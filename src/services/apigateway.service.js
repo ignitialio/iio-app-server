@@ -150,6 +150,7 @@ class APIGateway extends Service {
 
   /* clean up all bridges or selected subset only */
   _cleanUpBridges(subset) {
+    // if one specific service name provided make it array
     if (subset && typeof subset === 'string') {
       subset = [ subset ]
     }
@@ -164,6 +165,7 @@ class APIGateway extends Service {
           this.logger.warn('destroy [%s] bridge from gateway [%s]', s, this.uuid)
         }
       } else {
+        // remove all the services since no subset provided
         this._bridges[s]._unregister()
         delete this._bridges[s]
 
