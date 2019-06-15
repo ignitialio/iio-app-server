@@ -48,7 +48,7 @@ class APIGateway extends Service {
         async (request, content) => {
           try {
             // grab original service info
-            let service = gateway.services[request.parameters.service]
+            let service = await gateway._waitForService(request.parameters.service)
             let protocol = service.httpServer.https ? 'https://' : 'http://'
 
             let url = protocol + service.httpServer.host +
@@ -60,9 +60,10 @@ class APIGateway extends Service {
               method: 'get',
               responseType: 'document'
             })
-
+            
             return response.data
           } catch (err) {
+            console.log(err)
             return err
           }
         }) //, { contentType: 'text/html' })
@@ -70,7 +71,7 @@ class APIGateway extends Service {
       this.$app._rest.get('/images/:service/*filename', async (request, content) => {
         try {
           // grab original service info
-          let service = gateway.services[request.parameters.service]
+          let service = await gateway._waitForService(request.parameters.service)
 
           let protocol =
             service.httpServer.https ? 'https://' : 'http://'
@@ -134,6 +135,9 @@ class APIGateway extends Service {
       this._bridges[serviceName]._register()
 
       this.logger.info('gateway [%s] registered new service [%s]',
+        this.uuid, serviceName)
+
+      console.log('gateway [%s] registered new service [%s]',
         this.uuid, serviceName)
     } catch (err) {
       this.logger.error(err, 'failed to create bridge for service [%s]',

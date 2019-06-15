@@ -86,9 +86,9 @@ class Service extends EventEmitter {
         }
 
         // 2018/08/15: detokenize userID
-        let decoded = {}
+        let decoded
         try {
-          decoded = await this.$app.$data.users.checkToken({ token: data.userId })
+          // decoded = await this.$app.$data.users.checkToken({ token: data.userId })
           decoded = decoded || {}
         } catch (err) {
           this.logger.warn('data service method ' + data.method + ' token check failed: ' + err)
@@ -99,7 +99,7 @@ class Service extends EventEmitter {
 
         if (this[data.method]) {
           // injects userid for authorization check as per user's roles
-          this[data.method](data.args, decoded._id).then(result => {
+          this[data.method](data.args, { $userId: decoded._id }).then(result => {
             this.logger.info('[%s]-> response [%s] - user [%s]',
               this._name, topic, decoded._id)
 
