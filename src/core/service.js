@@ -66,9 +66,6 @@ class Service extends EventEmitter {
     // on service method request
     this._io.on('service:' + this._name + ':request', async data => {
       try {
-        // protects against direct dlake exposure
-        if (this._name.match(/^dlake/)) return
-
         let topic = 'service:' + this._name + ':' + data.method + ':' + data.token
 
         // prohibited methods:
@@ -88,24 +85,26 @@ class Service extends EventEmitter {
         // 2018/08/15: detokenize userID
         let decoded
         try {
-          // decoded = await this.$app.$data.users.checkToken({ token: data.userId })
-          decoded = decoded || {}
+          // decoded = await this.$app.$data.users.checkToken({ token: data.jwt })
         } catch (err) {
           this.logger.warn('data service method ' + data.method + ' token check failed: ' + err)
         }
+        
+        decoded = decoded || { login: { username: null }}
 
         this.logger.info('[%s]-> request [%s] - instance: [%s], user: [%s]',
           this._name, data.method, this.uuid, decoded._id)
 
         if (this[data.method]) {
+          data.args = data.args || []
           // injects userid for authorization check as per user's roles
-          this[data.method](data.args, { $userId: decoded._id }).then(result => {
+          data.args.push({ $userId: decoded.login.username || null })
+
+          this[data.method].apply(this, data.args).then(response => {
             this.logger.info('[%s]-> response [%s] - user [%s]',
               this._name, topic, decoded._id)
 
-            this._io.emit(topic, {
-              result: result
-            })
+            this._io.emit(topic, response)
           }).catch(err => {
             this._io.emit(topic, { err: err + '' })
           })
@@ -158,55 +157,3 @@ class Service extends EventEmitter {
 }
 
 exports.Service = Service
-
-/**
- Services manager
-**/
-class Services extends Service {
-  constructor(io, options) {
-    super(io, {
-      name: 'services',
-      ...options
-    })
-
-    // services references
-    this._services = {}
-
-    this._register()
-  }
-
-  /* register and instantiates a new service class: not exported */
-  _registerService(ServiceClass, opts) {
-    let service = new ServiceClass(this._io, opts)
-
-    this._services[service.name] = service
-
-    this.logger.info('service [' + service.name + '] registered')
-  }
-
-  /* unregister and "uninstantiates" a service class: not exported */
-  _unregisterService(service) {
-    if (typeof service === 'object') {
-      if (this._services[service.name]._destroy) {
-        this._services[service.name]._destroy()
-      }
-
-      delete this._services[service.name]
-    } else if (typeof service === 'string') {
-      if (this._services[service]._destroy) {
-        this._services[service]._destroy()
-      }
-
-      delete this._services[service]
-    }
-  }
-
-  /* unregister all services: not exported */
-  _unregisterAll() {
-    for (let s in this._services) {
-      this._unregisterService(s)
-    }
-  }
-}
-
-exports.Services = Services

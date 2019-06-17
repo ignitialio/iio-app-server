@@ -4,6 +4,7 @@ const fs = require('fs')
 exports.IIOAppServer = require('./core/appserver').IIOAppServer
 
 exports.defaultModules = {
+  apigateway: require('./modules/apigateway.module'),
   utils: require('./modules/utils.module'),
   emailer: require('./modules/emailer.module')
 }

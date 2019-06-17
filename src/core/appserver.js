@@ -4,6 +4,7 @@ const os = require('os')
 const EventEmitter = require('events').EventEmitter
 const Minio = require('minio')
 const urlencode = require('urlencode')
+const _ = require('lodash')
 
 const serveStatic = require('serve-static')
 const connect = require('connect')
@@ -15,6 +16,7 @@ const cors = require('cors')
 
 const WSManager = require('./ws').WSManager
 const Service = require('./service').Service
+const Module = require('./module').Module
 
 const utils = require('../utils')
 const logger = utils.logger
@@ -24,6 +26,17 @@ class IIOAppServer extends EventEmitter {
     super()
 
     this._config = options
+
+    // listeners
+    this._listeners = {
+      onKillSignal: this._killingMeSoftly.bind(this)
+    }
+
+    // manage destroy
+    // catch signals for clean shutdown
+    // => must catch signal to clean up connector/discovery
+    process.on('SIGINT', this._listeners.onKillSignal)
+    process.on('SIGTERM', this._listeners.onKillSignal)
 
     // path to server statically
     let path2serve = path.join(process.cwd(), this._config.server.path)
@@ -65,7 +78,7 @@ class IIOAppServer extends EventEmitter {
     this.ws.on('client', clientId => this.emit('client', clientId))
 
     // modules that provide root services
-    this.rootServices = {}
+    this._modules = {}
 
     // manage file uploads
     this._minioClient = new Minio.Client(this._config.store.minio)
@@ -189,7 +202,7 @@ class IIOAppServer extends EventEmitter {
 
       console.log('-----------------------------\nSuperstatically ready for [' +
         path2serve + '] on port [' +
-        this._config.server.port + ']\n------------------------------')
+        this._config.server.port + ']\n-----------------------------')
     })
 
     // all done
@@ -197,7 +210,16 @@ class IIOAppServer extends EventEmitter {
   }
 
   /* instantiate module dynamically using */
-  instantiateModule(name, ModClass) {
+  instantiateModule(name, ModClass, options) {
+    if (typeof ModClass === 'object') {
+      options = _.cloneDeep(ModClass)
+      ModClass = Module
+    } else if (ModClass === undefined) {
+      ModClass = Module
+    }
+    
+    options = options || {}
+
     if (this['$' + name]) {
       throw new Error('Module name conflict for ' + name)
     }
@@ -206,7 +228,7 @@ class IIOAppServer extends EventEmitter {
     ModClass.prototype.$app = this
 
     // create module instance and pass configuration
-    this._config.modules[name] = this._config.modules[name] || {}
+    this._config.modules[name] = this._config.modules[name] || options
     this._config.modules[name].name = name
     this['$' + name] = new ModClass(this._config.modules[name])
 
@@ -216,11 +238,23 @@ class IIOAppServer extends EventEmitter {
     }
 
     // is root service and needs to be added to the root services list
-    if (typeof this['$' + name]._register === 'function') {
+    if (typeof this['$' + name]._register === 'function' && ModClass.name !== 'Module') {
       this['$' + name]._register()
     }
 
     this.logger.info('[' + name + '] module loaded')
+
+    return this['$' + name]
+  }
+
+  /* ------------------------------------------------------------------------
+     called on catching SIGTERM/SIGINT signal
+     ------------------------------------------------------------------------ */
+  _killingMeSoftly() {
+    this.logger.info('SIGINT/SIGTERM received...')
+    for (let module in this._modules) {
+      this['$' + module]._destroy()
+    }
   }
 
   /* check REST access rights */

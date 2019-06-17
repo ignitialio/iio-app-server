@@ -52,7 +52,7 @@ class Config extends Service {
   modules() {
     return new Promise((resolve, reject) => {
       resolve({
-        list: this.$app.rootServices
+        list: this.$app._modules
       })
     })
   }

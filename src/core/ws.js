@@ -27,6 +27,7 @@ class WSManager extends EventEmitter {
 
     // logger
     this.logger = logger.child({ origin: 'ws' })
+
     // WS server
     this._io = IO(server)
 
@@ -119,23 +120,19 @@ class WSManager extends EventEmitter {
         // new client registered locally
         this._clients[socket.client.id] = {
           socket: socket,
-          services: null
+          $services: {}
         }
 
         // tells app that a new client is there
         this.emit('client', socket.client.id)
 
-        socket.on('disconnect', () => {
-          this._clients[socket.client.id].services._unregisterAll()
-          delete this._clients[socket.client.id].services
+        socket.on('disconnect', async () => {
+          await this._unregisterAll(socket.client.id)
+          delete this._clients[socket.client.id].$services
           delete this._clients[socket.client.id]
 
           this.logger.warn('deleted services for ' + socket.client.id)
         })
-
-        // new services manager for client WS socket
-        this._clients[socket.client.id].services =
-          new Services(socket, this._config.unified.options['services'])
 
         // just for debugging client side
         socket.emit('ws', { status: 'ready' })
@@ -164,22 +161,54 @@ class WSManager extends EventEmitter {
   /* add unified service */
   addService(name, service, options, clientId) {
     if (this._clients[clientId]) {
-      utils.waitForPropertyInit(this._clients[clientId], 'services').then(services => {
-        services._registerService(
-          service,
-          {
-            name: name,
-            ...options
-          })
-      }).catch(err => {
-        this.logger.warn(err, 'add service failed for client ' + clientId)
+      this._registerService(clientId, service, {
+        name: name,
+        ...options
       })
     }
   }
 
   /* get service called serviceName for a given client */
   getService(clientId, serviceName) {
-    return this._clients[clientId] ? this._clients[clientId].services._services[serviceName] : null
+    return this._clients[clientId] ? this._clients[clientId].$services[serviceName] : null
+  }
+
+  /* register and instantiates a new service class: not exported */
+  _registerService(clientId, ServiceClass, opts) {
+    let service = new ServiceClass(this._clients[clientId].socket, opts)
+    this._clients[clientId].$services[service.name] = service
+
+    this.logger.info('service [' + service.name + '] registered')
+  }
+
+  /* unregister and "uninstantiates" a service class: not exported */
+  async _unregisterService(clientId, service) {
+    if (typeof service === 'object') {
+      service = service.name
+    }
+
+    try {
+      if (this._clients[clientId].$services[service]._destroy) {
+        await this._clients[clientId].$services[service]._destroy()
+      }
+
+      delete this._clients[clientId].$services[service]
+    } catch (err) {
+      this.logger.error(err, 'fail to unregister service [' + service + ']')
+    }
+  }
+
+  /* unregister all services: not exported */
+  _unregisterAll(clientId) {
+    return new Promise(async (resolve, reject) => {
+      try {
+        for (let s in this._clients[clientId].$services) {
+          await this._unregisterService(clientId, s)
+        }
+      } catch (err) {
+        this.logger.error(err, 'fail to unregister services')
+      }
+    })
   }
 }
 

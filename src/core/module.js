@@ -15,40 +15,42 @@ class Module {
     this.logger = logger.child({ origin: this._name })
 
     // methods bridge list
-    this._bridgedMethods = []
-
-    // creates bridged methods
-    // REST service way
-    this.$app._rest.get('/modules/' + this._name + '/:method',
-      async (request, content, callback) => {
-        try {
-          let result = await this[request.parameters.method]()
-          return callback(null, result)
-        } catch (err) {
-          return callback(err, 'error')
-        }
-      })
+    this._methods = []
 
     this.logger.info('Module [%s] initialized', this._name)
   }
 
   _register() {
-    if (this.$app.rootServices[this._name]) {
+    if (this.$app._modules[this._name]) {
       this.logger.warn(this._name + ' service already registered')
       return
     }
 
     // WS service way
     // which are the available methods
-    this._bridgedMethods = getAllMethods(this)
+    this._methods = getAllMethods(this)
 
     this.$app.ws.on('module:event', async event => {
       let re = new RegExp('module:' + this._name + ':request')
       if (!!event.topic.match(re)) {
+        // prohibited methods:
+        // _ -> internal/private
+        // $ -> injected
+        if (event.method[0] === '_' && event.method[0] === '$') {
+          this.$app.ws.clients[event.source].socket.emit(topic, {
+            err: 'private method call not allowed'
+          })
+
+          this.logger.warn('private method [%s] call not allowed for module [%s]', event.method,
+            this._name)
+
+          return
+        }
+
         let topic = 'module:' + this._name + ':' + event.method +
           ':' + event.token
 
-        if (!_.includes(this._bridgedMethods, event.method)) {
+        if (!_.includes(this._methods, event.method)) {
           this.$app.ws.clients[event.source].socket
             .emit(topic, { err: 'method does not exist' })
 
@@ -56,28 +58,29 @@ class Module {
             event.method + ' is private or does not belong to module')
         }
 
-        // injects userid for authorization check as per user's roles
-        // injects logged info
-        let loggedUser = this.$app.ws.clients[event.source].socket._logged
-
         // injects userid for authorization check as per user's roles and call
         // service method
         // 2018/08/15: detokenize userID
-        let decoded = {}
+        let decoded
         try {
-          decoded = await this.$app.$data.users.checkToken({ token: event.userId })
-          decoded = decoded || {}
+          // decoded = await this.$app.$data.users.checkToken({ token: event.jwt })
         } catch (err) {
           this.logger.warn(this._name + ' service method ' + event.method + ' token check failed: ' + err)
         }
 
-        this[event.method](event.args, decoded._id, loggedUser)
-          .then(result => {
+        decoded = decoded || { login: { username: null }}
+
+        event.args = event.args || []
+        // injects userid for authorization check as per user's roles
+        event.args.push({ $userId: decoded.login.username || null })
+
+        this[event.method].apply(this, event.args)
+          .then(response => {
             this.logger.info('[%s] -> response [%s] - user [%s]',
               this._name, topic, decoded._id)
 
             this.$app.ws.clients[event.source].socket
-              .emit(topic, { result: result })
+              .emit(topic, response)
           }).catch(err => {
             this.$app.ws.clients[event.source].socket.emit(topic, { err: err + '' })
 
@@ -89,13 +92,17 @@ class Module {
 
     // service discovery: add info to rootService table that can be obtained
     // from client side
-    this.$app.rootServices[this._name] = {
+    this.$app._modules[this._name] = {
       name: this._name,
-      methods: this._bridgedMethods,
+      methods: this._methods,
       subs: null // no sub-services
     }
 
-    this.$app.ws.io.emit('module:up', this.$app.rootServices[this._name])
+    this.$app.ws.io.emit('module:up', this.$app._modules[this._name])
+  }
+
+  _destroy() {
+    this.logger.info('module [' + this._name + ' will be destroyed')
   }
 }
 
