@@ -89,7 +89,7 @@ class Service extends EventEmitter {
         } catch (err) {
           this.logger.warn('data service method ' + data.method + ' token check failed: ' + err)
         }
-        
+
         decoded = decoded || { login: { username: null }}
 
         this.logger.info('[%s]-> request [%s] - instance: [%s], user: [%s]',
@@ -99,6 +99,8 @@ class Service extends EventEmitter {
           data.args = data.args || []
           // injects userid for authorization check as per user's roles
           data.args.push({ $userId: decoded.login.username || null })
+
+          console.log('SERVICE CALL', data.method, data.args)
 
           this[data.method].apply(this, data.args).then(response => {
             this.logger.info('[%s]-> response [%s] - user [%s]',

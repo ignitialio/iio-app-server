@@ -57,21 +57,25 @@ class APIGateway extends Service {
 
   // file proxy for services
   async _fileProxyHandler(serviceName, fileName, token) {
-    // grab original service info
-    let service = await this._gateway._waitForService(serviceName)
+    try {
+      // grab original service info
+      let service = await this._gateway._waitForService(serviceName)
 
-    let protocol = service.httpServer.https ? 'https://' : 'http://'
+      let protocol = service.httpServer.https ? 'https://' : 'http://'
 
-    let url = protocol + service.httpServer.host +
-      ':' + service.httpServer.port + '/' + fileName
+      let url = protocol + service.httpServer.host +
+        ':' + service.httpServer.port + '/' + fileName
 
-    let response = await axios({
-      url: url,
-      method: 'get',
-      responseType: 'arraybuffer'
-    })
+      let response = await axios({
+        url: url,
+        method: 'get',
+        responseType: 'arraybuffer'
+      })
 
-    this._io.emit('service:proxy:' + token, response.data)
+      this._io.emit('service:proxy:' + token, response.data)
+    } catch (err) {
+      this._io.emit('service:proxy:' + token, { err: 'failed to fetch file' })
+    }
   }
 
   // creates bridge for given service
