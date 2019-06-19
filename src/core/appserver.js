@@ -217,7 +217,7 @@ class IIOAppServer extends EventEmitter {
     } else if (ModClass === undefined) {
       ModClass = Module
     }
-    
+
     options = options || {}
 
     if (this['$' + name]) {

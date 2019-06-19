@@ -18,7 +18,8 @@ class APIGateway extends Service {
     this._listeners = {
       onServiceRegistered: this._createBridge.bind(this),
       onServiceUnregistered: this._cleanUpBridges.bind(this),
-      onEvent: this._eventHandler.bind(this)
+      onEvent: this._eventHandler.bind(this),
+      onFileProxyRequest: this._fileProxyHandler.bind(this)
     }
 
     // maintains services info trough IIOS gateway
@@ -41,57 +42,8 @@ class APIGateway extends Service {
         this._io.emit('service:heartbeat:event', message)
       })
 
-      // fix gateway discrepency when hot reload
-      let gateway = this._gateway
-
-      this.$app._rest.get('/services/:service/*filename',
-        async (request, content) => {
-          try {
-            // grab original service info
-            let service = await gateway._waitForService(request.parameters.service)
-            let protocol = service.httpServer.https ? 'https://' : 'http://'
-
-            let url = protocol + service.httpServer.host +
-              ':' + service.httpServer.port + '/' +
-              request.parameters.filename
-
-            let response = await axios({
-              url: url,
-              method: 'get',
-              responseType: 'document'
-            })
-            
-            return response.data
-          } catch (err) {
-            console.log(err)
-            return err
-          }
-        }) //, { contentType: 'text/html' })
-
-      this.$app._rest.get('/images/:service/*filename', async (request, content) => {
-        try {
-          // grab original service info
-          let service = await gateway._waitForService(request.parameters.service)
-
-          let protocol =
-            service.httpServer.https ? 'https://' : 'http://'
-
-          let url = protocol + service.httpServer.host +
-            ':' + service.httpServer.port + '/' +
-            request.parameters.filename
-
-          let response = await axios({
-            url: url,
-            method: 'get',
-            responseType: 'stream'
-          })
-
-          return response.data
-        } catch (err) {
-          this.logger.error(err, 'failed to get image file')
-          return err
-        }
-      })
+      // provide file proxy for services
+      this._io.on('service:proxy', this._listeners.onFileProxyRequest)
 
       for (let serviceName in this._gateway._services) {
         this._createBridge(serviceName, this._gateway._services[serviceName])
@@ -101,6 +53,25 @@ class APIGateway extends Service {
     }).catch(err => {
       this.logger.error(err, 'APIGateway initialization failed')
     })
+  }
+
+  // file proxy for services
+  async _fileProxyHandler(serviceName, fileName, token) {
+    // grab original service info
+    let service = await this._gateway._waitForService(serviceName)
+
+    let protocol = service.httpServer.https ? 'https://' : 'http://'
+
+    let url = protocol + service.httpServer.host +
+      ':' + service.httpServer.port + '/' + fileName
+
+    let response = await axios({
+      url: url,
+      method: 'get',
+      responseType: 'arraybuffer'
+    })
+
+    this._io.emit('service:proxy:' + token, response.data)
   }
 
   // creates bridge for given service
@@ -134,11 +105,8 @@ class APIGateway extends Service {
       // register full service as a gateway bridged object
       this._bridges[serviceName]._register()
 
-      this.logger.info('gateway [%s] registered new service [%s]',
-        this.uuid, serviceName)
-
-      console.log('gateway [%s] registered new service [%s]',
-        this.uuid, serviceName)
+      this.logger.info('api gateway service [%s] registered new service [%s] with service gateway [%s]',
+        this.uuid, serviceName, this._gateway.uuid)
     } catch (err) {
       this.logger.error(err, 'failed to create bridge for service [%s]',
         serviceName)
@@ -181,6 +149,8 @@ class APIGateway extends Service {
   /* destructor */
   async _destroy() {
     try {
+      this._io.off('service:proxy', this._listeners.onFileProxyRequest)
+
       this._gateway._unsubscribeHeartBeat()
       this._cleanUpBridges()
 

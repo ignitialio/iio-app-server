@@ -127,11 +127,15 @@ class WSManager extends EventEmitter {
         this.emit('client', socket.client.id)
 
         socket.on('disconnect', async () => {
-          await this._unregisterAll(socket.client.id)
-          delete this._clients[socket.client.id].$services
-          delete this._clients[socket.client.id]
+          try {
+            await this._unregisterAll(socket.client.id)
+            delete this._clients[socket.client.id].$services
+            delete this._clients[socket.client.id]
 
-          this.logger.warn('deleted services for ' + socket.client.id)
+            this.logger.warn('deleted services for ' + socket.client.id)
+          } catch (err) {
+            console.error(err)
+          }
         })
 
         // just for debugging client side
@@ -205,8 +209,10 @@ class WSManager extends EventEmitter {
         for (let s in this._clients[clientId].$services) {
           await this._unregisterService(clientId, s)
         }
+        resolve()
       } catch (err) {
         this.logger.error(err, 'fail to unregister services')
+        reject(err)
       }
     })
   }
