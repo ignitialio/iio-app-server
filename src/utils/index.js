@@ -69,3 +69,34 @@ exports.waitForPropertySet = (name, value, delay = 5000) => {
     }, delay)
   })
 }
+
+/* provides value in json object by simple path */
+exports.getByPath = function(obj, path) {
+  path = path.split('.')
+
+  for (let p of path) {
+    let arrIndex = p.match(/(.*?)\[(.*?)\]/)
+
+    if (arrIndex) {
+      obj = obj[arrIndex[1]][arrIndex[2]]
+    } else if (obj[p] !== undefined) {
+      obj = obj[p]
+    }
+    else return null
+  }
+
+  return obj
+}
+
+/* sets value in json object using simple path */
+exports.setByPath = function(obj, path, value) {
+  path = path.split('.')
+  let level = path[0]
+  let next = path.slice(1).join('.')
+  if (next === '') {
+    obj[level] = value
+  } else {
+    obj[level] = obj[level] || {}
+    this.setByPath(obj[level], next, value)
+  }
+}

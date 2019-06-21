@@ -136,11 +136,6 @@ class IIOAppServer extends EventEmitter {
       return 'ok'
     })
 
-    this._rest.get('/test', (request, content) => {
-      console.log('OLE TEST')
-      return 'ok'
-    })
-
     this._rest.post('/dropfiles', async (request, content) => {
       try {
         if (request.files) {
@@ -207,6 +202,10 @@ class IIOAppServer extends EventEmitter {
 
     // all done
     this.logger.info('Application manager created')
+  }
+
+  get config() {
+    return this._config
   }
 
   /* instantiate module dynamically using */

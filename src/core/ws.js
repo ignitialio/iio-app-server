@@ -140,10 +140,6 @@ class WSManager extends EventEmitter {
 
         // just for debugging client side
         socket.emit('ws', { status: 'ready' })
-
-        setInterval(() => {
-          socket.emit('heartbeat')
-        }, 3000)
       } catch (err) {
         this.logger.error(err, 'something weird happened')
       }

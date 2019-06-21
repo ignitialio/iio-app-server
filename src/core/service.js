@@ -82,29 +82,30 @@ class Service extends EventEmitter {
           return
         }
 
-        // 2018/08/15: detokenize userID
-        let decoded
+        // detokenize userId
+        let userId
         try {
-          // decoded = await this.$app.$data.users.checkToken({ token: data.jwt })
+          let authService = await this.$app.$gateway.waitForAuthService()
+
+          userId = await authService.authorize(data.jwt)
         } catch (err) {
-          this.logger.warn('data service method ' + data.method + ' token check failed: ' + err)
+          this.logger.warn(err, 'service [%s] method [%s] token check failed',
+            this._name, data.method)
         }
 
-        decoded = decoded || { login: { username: null }}
-
-        this.logger.info('[%s]-> request [%s] - instance: [%s], user: [%s]',
-          this._name, data.method, this.uuid, decoded._id)
+        this.logger.info('[%s]-> request [%s] - instance: [%s], user [%s]',
+          this._name, data.method, this.uuid, userId)
 
         if (this[data.method]) {
           data.args = data.args || []
-          // injects userid for authorization check as per user's roles
-          data.args.push({ $userId: decoded.login.username || null })
-
-          console.log('SERVICE CALL', data.method, data.args)
+          // injects userid for further authorization check as per user's roles
+          data.args.push({
+            $userId: userId || null
+          })
 
           this[data.method].apply(this, data.args).then(response => {
             this.logger.info('[%s]-> response [%s] - user [%s]',
-              this._name, topic, decoded._id)
+              this._name, topic, userId)
 
             this._io.emit(topic, response)
           }).catch(err => {
@@ -112,11 +113,13 @@ class Service extends EventEmitter {
           })
         } else {
           this._io.emit(topic, {
-            err: 'Method [' + data.method + '] is not available for service [%s]' + this._name
+            err: 'Method [' + data.method +
+              '] is not available for service [%s]' + this._name
           })
         }
       } catch (err) {
-        this.logger.error(err, 'failed to call method [%s] for service [%s]', data.method, this._name)
+        this.logger.error(err, 'failed to call method [%s] for service [%s]',
+          data.method, this._name)
       } // try/catch
     })
 

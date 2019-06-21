@@ -49,7 +49,7 @@ class APIGateway extends Service {
         this._createBridge(serviceName, this._gateway._services[serviceName])
       }
 
-      this.logger.info({ options: this._options }, 'api gateway created')
+      this.logger.info(this._options, 'api gateway created')
     }).catch(err => {
       this.logger.error(err, 'APIGateway initialization failed')
     })
@@ -96,6 +96,8 @@ class APIGateway extends Service {
 
       // ...when done, creates new unified service bridge
       this._bridges[serviceName] = new Service(this._io, serviceInfo)
+      // IIOS gateway injection in each servic for inter-services calls
+      this._bridges[serviceName].$gateway = this._gateway
 
       // inject creation timestamp property for further checks
       this._bridges[serviceName].$creationTimestamp = serviceInfo.creationTimestamp
