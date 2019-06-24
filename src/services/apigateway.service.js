@@ -122,8 +122,7 @@ class APIGateway extends Service {
   /* handle service specific event */
   _eventHandler(message) {
     // push to web client
-    this._io.emit('service:' + message.meta.service +
-      ':event:' + message.meta.event, message.payload)
+    this._io.emit('service:event:' + message.meta.event, message.payload)
   }
 
   /* clean up all bridges or selected subset only */

@@ -189,6 +189,27 @@ class IIOAppServer extends EventEmitter {
       return healthInfo
     })
 
+    // register data collections
+    this._waitForModule('gateway').then(gateway => {
+      gateway.gateway._waitForServiceAPI(this._config.data.service)
+        .then(async dataService => {
+          try {
+            for (let collection of this._config.data.collections) {
+              await dataService.addDatum(collection.name, collection.options, {
+                $privileged: true,
+                $userId: null
+              })
+            }
+          } catch (err) {
+            this.logger.error(err, 'failed to add datum')
+          }
+        }).catch(err => {
+          this.logger.error(err, 'failed to add datum')
+        })
+    }).catch(err => {
+      this.logger.error(err, 'failed to add datum')
+    })
+
     // start web server
     this._server.listen(this._config.server.port, err => {
       if (err) {
@@ -244,6 +265,33 @@ class IIOAppServer extends EventEmitter {
     this.logger.info('[' + name + '] module loaded')
 
     return this['$' + name]
+  }
+
+  /* wait for module to be available */
+  _waitForModule(name, timeout = 5000) {
+    return new Promise((resolve, reject) => {
+      var checkTimeout
+
+      var checkInterval = setInterval(() => {
+        if (this['$' + name]) {
+          clearInterval(checkInterval)
+
+          if (checkTimeout) {
+            clearTimeout(checkTimeout)
+          }
+
+          resolve(this['$' + name])
+        }
+      }, 100)
+
+      checkTimeout = setTimeout(() => {
+        if (checkInterval) {
+          clearInterval(checkInterval)
+
+          reject(new Error('timeout: service ' + name + ' is not available'))
+        }
+      }, timeout)
+    })
   }
 
   /* ------------------------------------------------------------------------
