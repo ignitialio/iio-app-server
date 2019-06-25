@@ -1,4 +1,3 @@
-const _ = require('lodash')
 const EventEmitter = require('events').EventEmitter
 
 const utils = require('../utils')

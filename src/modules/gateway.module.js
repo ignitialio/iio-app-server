@@ -1,9 +1,5 @@
-const fs = require('fs')
-const path = require('path')
-
 const Module = require('../core/module').Module
 const IIOSGateway = require('@ignitial/iio-services').Gateway
-const utils = require('../utils')
 
 class Gateway extends Module {
   constructor(options) {

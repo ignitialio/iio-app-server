@@ -81,8 +81,9 @@ exports.getByPath = function(obj, path) {
       obj = obj[arrIndex[1]][arrIndex[2]]
     } else if (obj[p] !== undefined) {
       obj = obj[p]
+    } else {
+      return null
     }
-    else return null
   }
 
   return obj
@@ -96,7 +97,7 @@ exports.setByPath = function(obj, path, value) {
   if (next === '') {
     obj[level] = value
   } else {
-    obj[level] = obj[level] || {}
+    obj[level] = obj[level] || {}
     this.setByPath(obj[level], next, value)
   }
 }

@@ -15,9 +15,11 @@ let defaultUnifiedPath = path.join(__dirname, 'services')
 let defaultUnifiedSrc = fs.readdirSync(defaultUnifiedPath)
 
 for (let f of defaultUnifiedSrc) {
-  let basename = path.basename(f, '.service.js')
-  let Service = require(path.join(defaultUnifiedPath, f))
-  defaultUnified[basename] = Service
+  if (f.match('.service.js')) {
+    let basename = path.basename(f, '.service.js')
+    let Service = require(path.join(defaultUnifiedPath, f))
+    defaultUnified[basename] = Service
+  }
 }
 
 exports.defaultUnified = defaultUnified

@@ -12,9 +12,3 @@ yarn-error.log*
 *.ntvs*
 *.njsproj
 *.sln
-
-# containing creadentials
-dev_start.sh
-dev_start-couch.sh
-prod_start.sh
-run_server.sh

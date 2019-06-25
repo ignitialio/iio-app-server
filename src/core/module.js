@@ -33,6 +33,9 @@ class Module {
     this.$app.ws.on('module:event', async event => {
       let re = new RegExp('module:' + this._name + ':request')
       if (!!event.topic.match(re)) {
+        let topic = 'module:' + this._name + ':' + event.method +
+          ':' + event.token
+
         // prohibited methods:
         // _ -> internal/private
         // $ -> injected
@@ -47,9 +50,6 @@ class Module {
           return
         }
 
-        let topic = 'module:' + this._name + ':' + event.method +
-          ':' + event.token
-
         if (!_.includes(this._methods, event.method)) {
           this.$app.ws.clients[event.source].socket
             .emit(topic, { err: 'method does not exist' })
@@ -58,26 +58,25 @@ class Module {
             event.method + ' is private or does not belong to module')
         }
 
-        // injects userid for authorization check as per user's roles and call
-        // service method
-        // 2018/08/15: detokenize userID
-        let decoded
+        let userId
         try {
-          // decoded = await this.$app.$data.users.checkToken({ token: event.jwt })
+          let authService = await this.$app.$gateway.waitForAuthService()
+
+          userId = await authService.authorize(event.jwt)
         } catch (err) {
-          this.logger.warn(this._name + ' service method ' + event.method + ' token check failed: ' + err)
+          this.logger.warn(err, 'module [%s] method [%s] token check failed',
+            this._name, event.method)
         }
 
-        decoded = decoded || { login: { username: null }}
-
         event.args = event.args || []
-        // injects userid for authorization check as per user's roles
-        event.args.push({ $userId: decoded.login.username || null })
+        // injects userid for second authorization check as per user's roles
+        // -> module can check grants as per its specific needs
+        event.args.push({ $userId: userId || null })
 
         this[event.method].apply(this, event.args)
           .then(response => {
             this.logger.info('[%s] -> response [%s] - user [%s]',
-              this._name, topic, decoded._id)
+              this._name, topic, userId)
 
             this.$app.ws.clients[event.source].socket
               .emit(topic, response)
@@ -90,7 +89,7 @@ class Module {
       }
     })
 
-    // service discovery: add info to rootService table that can be obtained
+    // service discovery: add info to _modules table that can be obtained
     // from client side
     this.$app._modules[this._name] = {
       name: this._name,

@@ -11,7 +11,6 @@ const utils = require('../utils')
 const logger = utils.logger
 
 const Service = require('./service').Service
-const Services = require('./service').Services
 
 class WSManager extends EventEmitter {
   constructor(server, config) {
