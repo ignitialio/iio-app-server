@@ -1,5 +1,6 @@
 const _ = require('lodash')
 
+const Encoders = require('../encoders')
 const utils = require('../utils')
 const logger = utils.logger
 const getAllMethods = utils.getAllMethods
@@ -17,6 +18,15 @@ class Module {
     // methods bridge list
     this._methods = []
 
+    // web socket encoder: default to bson
+    let encoder = 'bson'
+
+    if (this.$app.config.encoder && this.$app.config.encoder.name) {
+      encoder = this.$app.config.encoder.name
+    }
+
+    this._encoder = Encoders[encoder]
+
     this.logger.info('Module [%s] initialized', this._name)
   }
 
@@ -31,6 +41,12 @@ class Module {
     this._methods = getAllMethods(this)
 
     this.$app.ws.on('module:event', async event => {
+      // grab source whatever encoding is (injected by ws manager)
+      let source = event.source
+
+      // decode/unpack
+      event = this._encoder.unpack(event)
+
       let re = new RegExp('module:' + this._name + ':request')
       if (!!event.topic.match(re)) {
         let topic = 'module:' + this._name + ':' + event.method +
@@ -40,7 +56,7 @@ class Module {
         // _ -> internal/private
         // $ -> injected
         if (event.method[0] === '_' && event.method[0] === '$') {
-          this.$app.ws.clients[event.source].socket.emit(topic, {
+          this.$app.ws.clients[source].socket.emit(topic,{
             err: 'private method call not allowed'
           })
 
@@ -51,7 +67,7 @@ class Module {
         }
 
         if (!_.includes(this._methods, event.method)) {
-          this.$app.ws.clients[event.source].socket
+          this.$app.ws.clients[source].socket
             .emit(topic, { err: 'method does not exist' })
 
           this.logger.error(this._name + ' service method ' +
@@ -78,10 +94,11 @@ class Module {
             this.logger.info('[%s] -> response [%s] - user [%s]',
               this._name, topic, userId)
 
-            this.$app.ws.clients[event.source].socket
-              .emit(topic, response)
+            response = this._encoder.pack({ data: response || null })
+
+            this.$app.ws.clients[source].socket.emit(topic, response)
           }).catch(err => {
-            this.$app.ws.clients[event.source].socket.emit(topic, { err: err + '' })
+            this.$app.ws.clients[source].socket.emit(topic, { err: err + '' })
 
             this.logger.error(err, this._name + ' service method ' +
               event.method + ' call failed')
@@ -97,7 +114,8 @@ class Module {
       subs: null // no sub-services
     }
 
-    this.$app.ws.io.emit('module:up', this.$app._modules[this._name])
+    this.$app.ws.io.emit('module:up',
+      this._encoder.pack(this.$app._modules[this._name]))
   }
 
   _destroy() {

@@ -1,5 +1,6 @@
 const EventEmitter = require('events').EventEmitter
 
+const Encoders = require('../encoders')
 const utils = require('../utils')
 const uuid = utils.uuid
 const logger = utils.logger
@@ -27,6 +28,15 @@ class Service extends EventEmitter {
 
       // logs
       this.logger = logger.child({ origin: this._name })
+
+      // web socket encoder: default to bson
+      let encoder = 'bson'
+
+      if (this.$app.config.encoder && this.$app.config.encoder.name) {
+        encoder = this.$app.config.encoder.name
+      }
+
+      this._encoder = Encoders[encoder]
 
       // detect methods to be exposed as per design rules
       this._detectMethods()
@@ -65,6 +75,9 @@ class Service extends EventEmitter {
     // on service method request
     this._io.on('service:' + this._name + ':request', async data => {
       try {
+        // decode/unpack
+        data = this._encoder.unpack(data)
+
         let topic = 'service:' + this._name + ':' + data.method + ':' + data.token
 
         // prohibited methods:
@@ -106,11 +119,15 @@ class Service extends EventEmitter {
             this.logger.info('[%s]-> response [%s] - user [%s]',
               this._name, topic, userId)
 
+            response = this._encoder.pack({ data: response || null })
+
             this._io.emit(topic, response)
           }).catch(err => {
+            // do NOT encode err messages: use native json
             this._io.emit(topic, { err: err + '' })
           })
         } else {
+          // do NOT encode err messages: use native json
           this._io.emit(topic, {
             err: 'Method [' + data.method +
               '] is not available for service [%s]' + this._name
@@ -123,11 +140,13 @@ class Service extends EventEmitter {
     })
 
     // tells client that service is up
-    this._io.emit('service:up', {
+    let serviceInfo = this._encoder.pack({
       name: this._name,
       methods: this._methods,
       options: this._options.options
     })
+
+    this._io.emit('service:up', serviceInfo)
   }
 
   /* unregister service and inform client that service is down */
@@ -143,9 +162,9 @@ class Service extends EventEmitter {
       }
 
       // tells client that service is down
-      this._io.emit('service:down', {
+      this._io.emit('service:down', this._encoder.pack({
         name: this._name
-      })
+      }))
     } catch (err) {
       this.logger.error(err, 'failed to unregister', this._name)
     }
