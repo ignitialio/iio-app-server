@@ -104,7 +104,10 @@ class IIOAppServer extends EventEmitter {
       }
     })
 
-    // REST service for uploaded files
+
+    /* **********************************************************************
+    S3 download proxy
+    ********************************************************************** */
     let getObject = request => {
       return new Promise((resolve, reject) => {
         this._minioClient.getObject(bucket,
@@ -132,11 +135,194 @@ class IIOAppServer extends EventEmitter {
       return stream
     })
 
-    this._rest.post('/upload', async (request, content) => {
-      return 'ok'
+    /* **********************************************************************
+    File upload management
+    ********************************************************************** */
+    let temporaryFolder = path.join(this._config.server.filesDropPath, 'tmp')
+    let maxFileSize = null
+    let fileParameterName = 'file'
+
+    try {
+        fs.mkdirSync(temporaryFolder)
+    } catch (e) {
+      this.logger.info('temporary folder [%s] created', temporaryFolder)
+    }
+
+    function cleanIdentifier(identifier) {
+      return identifier.replace(/[^0-9A-Za-z_-]/g, '')
+    }
+
+    function getChunkFilename(chunkNumber, identifier) {
+      // Clean up the identifier
+      identifier = cleanIdentifier(identifier)
+
+      // What would the file name be?
+      return path.resolve(temporaryFolder, './flow-' + identifier +
+        '.' + chunkNumber)
+    }
+
+    function validateRequest(chunkNumber, chunkSize, totalSize, identifier,
+      filename, fileSize) {
+      // Clean up the identifier
+      identifier = cleanIdentifier(identifier)
+
+      // Check if the request is sane
+      if (chunkNumber === 0 || chunkSize === 0 || totalSize === 0 ||
+        identifier.length === 0 || filename.length === 0) {
+        return 'non_flow_request'
+      }
+
+      var numberOfChunks = Math.max(Math.floor(totalSize / (chunkSize * 1.0)), 1)
+      if (chunkNumber > numberOfChunks) {
+        return 'invalid_flow_request1'
+      }
+
+      // Is the file too big?
+      if (maxFileSize && totalSize > maxFileSize) {
+        return 'invalid_flow_request2'
+      }
+
+      if (typeof(fileSize) !== 'undefined') {
+        if (chunkNumber < numberOfChunks && fileSize !== chunkSize) {
+          // The chunk in the POST request isn't the correct size
+          return 'invalid_flow_request3'
+        }
+
+        if (numberOfChunks > 1 && chunkNumber === numberOfChunks &&
+          fileSize !== ((totalSize % chunkSize) + parseInt(chunkSize))) {
+          // The chunks in the POST is the last one, and the fil is not the correct size
+          return 'invalid_flow_request4'
+        }
+
+        if (numberOfChunks === 1 && fileSize !== totalSize) {
+          // The file is only a single chunk, and the data size does not fit
+          return 'invalid_flow_request5'
+        }
+      }
+
+      return 'valid'
+    }
+
+    this._rest.get('/upload', (request, content) => {
+      var chunkNumber = request.params.flowChunkNumber || 0
+      var chunkSize = request.params.flowChunkSize || 0
+      var totalSize = request.params.flowTotalSize || 0
+      var identifier = request.params.flowIdentifier || ''
+      var filename = request.params.flowFilename || ''
+
+      if (validateRequest(chunkNumber, chunkSize, totalSize, identifier, filename) === 'valid') {
+        var chunkFilename = getChunkFilename(chunkNumber, identifier)
+        let exists = fs.existsSync(chunkFilename)
+
+        if (exists) {
+          this.logger.info('file found', chunkFilename, filename, identifier)
+
+          return { result: 'found', options: { statusCode: 200 } }
+        } else {
+          this.logger.info('chunk [%s] not found for file [%s]', chunkFilename, filename)
+          return { result: 'not found', options: { statusCode: 204 } }
+        }
+      } else {
+        this.logger.info('file [%s] not found: validation failed', filename)
+        return { result: 'not found',options: { statusCode: 204 } }
+      }
     })
 
-    this._rest.post('/dropfiles', async (request, content) => {
+    this._rest.post('/upload', (request, content) => {
+      let uploadedFile
+      if (request.files.file) {
+        uploadedFile = request.files.file
+      }
+
+      if (!utils.fileExists(this._config.server.filesDropPath)) {
+        fs.mkdirSync(this._config.server.filesDropPath)
+      }
+
+      var fields = request.body
+      var files = request.files
+
+      var chunkNumber = fields['flowChunkNumber']
+      var chunkSize = fields['flowChunkSize']
+      var totalSize = fields['flowTotalSize']
+      var identifier = cleanIdentifier(fields['flowIdentifier'])
+      var filename = fields['flowFilename']
+
+      if (!files[fileParameterName] || !files[fileParameterName].size) {
+        this.logger.error('invalid flow request', fileParameterName)
+        return { result: 'not found', options: { statusCode: 204 } }
+      }
+
+      var original_filename = files[fileParameterName]['originalFilename']
+      var validation = validateRequest(chunkNumber, chunkSize, totalSize,
+        identifier, filename, files[fileParameterName].size)
+
+        if (validation === 'valid') {
+          var chunkFilename = getChunkFilename(chunkNumber, identifier)
+
+          // Save the chunk (TODO: OVERWRITE)
+          fs.renameSync(files[fileParameterName].path, chunkFilename)
+
+          // Do we have all the chunks?
+          var currentTestChunk = 1
+          var numberOfChunks = Math.max(Math.floor(totalSize / (chunkSize * 1.0)), 1)
+
+          var testChunkExists = () => {
+            try {
+              let exists = fs.existsSync(getChunkFilename(currentTestChunk, identifier))
+
+              if (exists) {
+                currentTestChunk++
+                if (currentTestChunk > numberOfChunks) {
+                  this.logger.info('file [%s] (original = [%s]) uploaded with id [%s]',
+                    filename, original_filename, identifier)
+
+                  fs.copyFileSync(uploadedFile.path,
+                    path.join(this._config.server.filesDropPath, uploadedFile.name))
+                  fs.unlinkSync(uploadedFile.path)
+
+                  return {
+                    result: path.join(this._config.server.filesDropPath, uploadedFile.name),
+                    options: { statusCode: 200 }
+                  }
+                } else {
+                  // Recursion
+                  return testChunkExists()
+                }
+              } else {
+                this.logger.info('file [%s] (original = [%s]) partially uploaded with id [%s]',
+                  filename, original_filename, identifier)
+
+                fs.copyFileSync(uploadedFile.path,
+                  path.join(this._config.server.filesDropPath, uploadedFile.name))
+                fs.unlinkSync(uploadedFile.path)
+
+                return {
+                  result: path.join(this._config.server.filesDropPath, uploadedFile.name),
+                  options: { statusCode: 200 }
+                }
+              }
+            } catch (err) {
+              return new Error('failed to update chunks')
+            }
+          }
+
+          return testChunkExists()
+        } else {
+          this.logger.info('file [%s] (original = [%s], id = [%s]) validation failed',
+            filename, original_filename, identifier)
+
+          fs.copyFileSync(uploadedFile.path,
+            path.join(this._config.server.filesDropPath, uploadedFile.name))
+          fs.unlinkSync(uploadedFile.path)
+
+          return {
+            result: path.join(this._config.server.filesDropPath, uploadedFile.name),
+            options: { statusCode: 200 }
+          }
+        }
+      })
+
+    this._rest.post('/s3upload', async (request, content) => {
       try {
         if (request.files) {
           if (!utils.fileExists(this._config.server.filesDropPath)) {
@@ -180,12 +366,17 @@ class IIOAppServer extends EventEmitter {
       }
     })
 
+    /* **********************************************************************
+    ENDOF File management
+    ********************************************************************** */
+
     // Health API endpoint
     this._rest.get('/healthcheck', async (request, content) => {
       let healthInfo = await this.$utils.info()
       healthInfo.hostname = os.hostname()
       healthInfo.cpus = os.cpus()
       healthInfo.loadavg = os.loadavg()
+
       return healthInfo
     })
 
