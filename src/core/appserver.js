@@ -392,7 +392,9 @@ class IIOAppServer extends EventEmitter {
               })
             }
           } catch (err) {
-            this.logger.error(err, 'failed to add datum')
+            if (!('' + err).match('datum already defined')) {
+              this.logger.error(err, 'failed to add datum')
+            }
           }
         }).catch(err => {
           this.logger.error(err, 'failed to add datum')
