@@ -101,8 +101,8 @@ class Service extends EventEmitter {
 
           userId = await authService.authorize(data.jwt)
         } catch (err) {
-          this.logger.warn(err, 'service [%s] method [%s] token check failed',
-            this._name, data.method)
+          this.logger.warn('service [%s] method [%s] token check failed: [%s]',
+            this._name, data.method, '' + err)
         }
 
         this.logger.info('[%s]-> request [%s] - instance: [%s], user [%s]',

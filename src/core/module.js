@@ -80,8 +80,8 @@ class Module {
 
           userId = await authService.authorize(event.jwt)
         } catch (err) {
-          this.logger.warn(err, 'module [%s] method [%s] token check failed',
-            this._name, event.method)
+          this.logger.warn('module [%s] method [%s] token check failed: [%s]',
+            this._name, event.method, '' + err)
         }
 
         event.args = event.args || []
