@@ -1,6 +1,6 @@
 {
   "name": "@ignitial/iio-app-server",
-  "version": "5.1.6",
+  "version": "5.1.7",
   "description": "Ignitial.io Application server library",
   "author": "Victor Andritoiu <devandrito@gmail.com>",
   "repository": "git@gitlab.com:iio-core/iio-app-server.git",

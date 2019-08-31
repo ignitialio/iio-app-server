@@ -39,6 +39,31 @@ class WSManager extends EventEmitter {
     this._io.on('connection', socket => {
       this.logger.info('new client connection', socket.client.conn.remoteAddress)
 
+      this.$app._waitForModule('gateway').then(gateway => {
+        gateway.gateway._waitForServiceAPI(this._config.data.service + ':connections')
+          .then(async connections => {
+            try {
+              await connections.dPut({
+                clientId: socket.client.id,
+                connectionDate: new Date(),
+                disconnectionDate: null,
+                remoteAddress: socket.client.conn.request.headers['x-forwarded-for'] ||
+                  socket.client.conn.remoteAddress,
+                headers: socket.client.conn.request.headers
+              }, {
+                $privileged: true,
+                $userId: null
+              })
+            } catch (err) {
+              this.logger.error(err, 'failed to log connection data')
+            }
+          }).catch(err => {
+            this.logger.error(err, 'failed to log connection data')
+          })
+      }).catch(err => {
+        this.logger.error(err, 'failed to add datum')
+      })
+
       // manage file streams through minio/S3
       SocketStream(socket).on('ws:file:upload', (stream, data) => {
         if (data && data.name) {
@@ -132,6 +157,28 @@ class WSManager extends EventEmitter {
             delete this._clients[socket.client.id]
 
             this.logger.warn('deleted services for ' + socket.client.id)
+
+            this.$app._waitForModule('gateway').then(gateway => {
+              gateway.gateway._waitForServiceAPI(this._config.data.service + ':connections')
+                .then(async connections => {
+                  try {
+                    await connections.dUpdate({
+                      clientId: socket.client.id
+                    }, {
+                      disconnectionDate: new Date()
+                    }, {
+                      $privileged: true,
+                      $userId: null
+                    })
+                  } catch (err) {
+                    this.logger.error(err, 'failed to log connection data')
+                  }
+                }).catch(err => {
+                  this.logger.error(err, 'failed to log connection data')
+                })
+            }).catch(err => {
+              this.logger.error(err, 'failed to log connection data')
+            })
           } catch (err) {
             console.error(err)
           }
