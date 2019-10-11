@@ -61,7 +61,7 @@ class WSManager extends EventEmitter {
             this.logger.error(err, 'failed to log connection data')
           })
       }).catch(err => {
-        this.logger.error(err, 'failed to add datum')
+        this.logger.error(err, 'failed to log connection data')
       })
 
       // manage file streams through minio/S3
