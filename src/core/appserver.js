@@ -13,6 +13,7 @@ const Rest = require('connect-rest')
 const multipart = require('connect-multiparty')
 const http = require('http')
 const cors = require('cors')
+const morgan = require('morgan')
 
 const WSManager = require('./ws').WSManager
 const Service = require('./service').Service
@@ -53,6 +54,7 @@ class IIOAppServer extends EventEmitter {
     this._connectApp.use(bodyParser.urlencoded({ extended: true }))
       .use(bodyParser.json())
       .use(multipart())
+      .use(morgan())
       .use(serveStatic(path2serve, { 'index': [ 'index.html' ] }))
 
     this._rest = Rest.create({
