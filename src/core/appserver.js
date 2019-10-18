@@ -54,7 +54,7 @@ class IIOAppServer extends EventEmitter {
     this._connectApp.use(bodyParser.urlencoded({ extended: true }))
       .use(bodyParser.json())
       .use(multipart())
-      .use(morgan())
+      .use(morgan('combined'))
       .use(serveStatic(path2serve, { 'index': [ 'index.html' ] }))
 
     this._rest = Rest.create({
