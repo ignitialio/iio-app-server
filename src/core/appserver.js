@@ -54,8 +54,11 @@ class IIOAppServer extends EventEmitter {
     this._connectApp.use(bodyParser.urlencoded({ extended: true }))
       .use(bodyParser.json())
       .use(multipart())
-      .use(morgan('combined'))
       .use(serveStatic(path2serve, { 'index': [ 'index.html' ] }))
+
+    if (process.env.IIOS_SERVER_ACCESS_LOGS) {
+      this._connectApp.use(morgan('combined'))
+    }
 
     this._rest = Rest.create({
       context: '/api',
@@ -106,7 +109,6 @@ class IIOAppServer extends EventEmitter {
       }
     })
 
-
     /* **********************************************************************
     S3 download proxy
     ********************************************************************** */
@@ -145,7 +147,7 @@ class IIOAppServer extends EventEmitter {
     let fileParameterName = 'file'
 
     try {
-        fs.mkdirSync(temporaryFolder)
+      fs.mkdirSync(temporaryFolder)
     } catch (e) {
       this.logger.info('temporary folder [%s] created', temporaryFolder)
     }
@@ -184,7 +186,7 @@ class IIOAppServer extends EventEmitter {
         return 'invalid_flow_request2'
       }
 
-      if (typeof(fileSize) !== 'undefined') {
+      if (typeof (fileSize) !== 'undefined') {
         if (chunkNumber < numberOfChunks && fileSize !== chunkSize) {
           // The chunk in the POST request isn't the correct size
           return 'invalid_flow_request3'
@@ -226,7 +228,7 @@ class IIOAppServer extends EventEmitter {
         }
       } else {
         this.logger.info('file [%s] not found: validation failed', filename)
-        return { result: 'not found',options: { statusCode: 204 } }
+        return { result: 'not found', options: { statusCode: 204 } }
       }
     })
 
@@ -254,45 +256,29 @@ class IIOAppServer extends EventEmitter {
         return { result: 'not found', options: { statusCode: 204 } }
       }
 
-      var original_filename = files[fileParameterName]['originalFilename']
+      var originalFilename = files[fileParameterName]['originalFilename']
       var validation = validateRequest(chunkNumber, chunkSize, totalSize,
         identifier, filename, files[fileParameterName].size)
 
-        if (validation === 'valid') {
-          var chunkFilename = getChunkFilename(chunkNumber, identifier)
+      if (validation === 'valid') {
+        var chunkFilename = getChunkFilename(chunkNumber, identifier)
 
-          // Save the chunk (TODO: OVERWRITE)
-          fs.renameSync(files[fileParameterName].path, chunkFilename)
+        // Save the chunk (TODO: OVERWRITE)
+        fs.renameSync(files[fileParameterName].path, chunkFilename)
 
-          // Do we have all the chunks?
-          var currentTestChunk = 1
-          var numberOfChunks = Math.max(Math.floor(totalSize / (chunkSize * 1.0)), 1)
+        // Do we have all the chunks?
+        var currentTestChunk = 1
+        var numberOfChunks = Math.max(Math.floor(totalSize / (chunkSize * 1.0)), 1)
 
-          var testChunkExists = () => {
-            try {
-              let exists = fs.existsSync(getChunkFilename(currentTestChunk, identifier))
+        var testChunkExists = () => {
+          try {
+            let exists = fs.existsSync(getChunkFilename(currentTestChunk, identifier))
 
-              if (exists) {
-                currentTestChunk++
-                if (currentTestChunk > numberOfChunks) {
-                  this.logger.info('file [%s] (original = [%s]) uploaded with id [%s]',
-                    filename, original_filename, identifier)
-
-                  fs.copyFileSync(uploadedFile.path,
-                    path.join(this._config.server.filesDropPath, uploadedFile.name))
-                  fs.unlinkSync(uploadedFile.path)
-
-                  return {
-                    result: path.join(this._config.server.filesDropPath, uploadedFile.name),
-                    options: { statusCode: 200 }
-                  }
-                } else {
-                  // Recursion
-                  return testChunkExists()
-                }
-              } else {
-                this.logger.info('file [%s] (original = [%s]) partially uploaded with id [%s]',
-                  filename, original_filename, identifier)
+            if (exists) {
+              currentTestChunk++
+              if (currentTestChunk > numberOfChunks) {
+                this.logger.info('file [%s] (original = [%s]) uploaded with id [%s]',
+                  filename, originalFilename, identifier)
 
                 fs.copyFileSync(uploadedFile.path,
                   path.join(this._config.server.filesDropPath, uploadedFile.name))
@@ -302,27 +288,43 @@ class IIOAppServer extends EventEmitter {
                   result: path.join(this._config.server.filesDropPath, uploadedFile.name),
                   options: { statusCode: 200 }
                 }
+              } else {
+                // Recursion
+                return testChunkExists()
               }
-            } catch (err) {
-              return new Error('failed to update chunks')
+            } else {
+              this.logger.info('file [%s] (original = [%s]) partially uploaded with id [%s]',
+                filename, originalFilename, identifier)
+
+              fs.copyFileSync(uploadedFile.path,
+                path.join(this._config.server.filesDropPath, uploadedFile.name))
+              fs.unlinkSync(uploadedFile.path)
+
+              return {
+                result: path.join(this._config.server.filesDropPath, uploadedFile.name),
+                options: { statusCode: 200 }
+              }
             }
-          }
-
-          return testChunkExists()
-        } else {
-          this.logger.info('file [%s] (original = [%s], id = [%s]) validation failed',
-            filename, original_filename, identifier)
-
-          fs.copyFileSync(uploadedFile.path,
-            path.join(this._config.server.filesDropPath, uploadedFile.name))
-          fs.unlinkSync(uploadedFile.path)
-
-          return {
-            result: path.join(this._config.server.filesDropPath, uploadedFile.name),
-            options: { statusCode: 200 }
+          } catch (err) {
+            return new Error('failed to update chunks')
           }
         }
-      })
+
+        return testChunkExists()
+      } else {
+        this.logger.info('file [%s] (original = [%s], id = [%s]) validation failed',
+          filename, originalFilename, identifier)
+
+        fs.copyFileSync(uploadedFile.path,
+          path.join(this._config.server.filesDropPath, uploadedFile.name))
+        fs.unlinkSync(uploadedFile.path)
+
+        return {
+          result: path.join(this._config.server.filesDropPath, uploadedFile.name),
+          options: { statusCode: 200 }
+        }
+      }
+    })
 
     this._rest.post('/s3upload', async (request, content) => {
       try {

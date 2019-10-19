@@ -56,7 +56,7 @@ class Module {
         // _ -> internal/private
         // $ -> injected
         if (event.method[0] === '_' && event.method[0] === '$') {
-          this.$app.ws.clients[source].socket.emit(topic,{
+          this.$app.ws.clients[source].socket.emit(topic, {
             err: 'private method call not allowed'
           })
 

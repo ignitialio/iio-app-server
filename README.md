@@ -58,4 +58,4 @@ _ _unified_ in the congifuraiton file)
 ## Tests  
 
 Tests are mainly done trough the full application. For example:
-[IgnitialIO application template](https://github.com/ignitialio/iio-app-template)
+[IgnitialIO application template](https://github.com/ignitialio/iio-app-material-template)
