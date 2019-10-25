@@ -388,16 +388,16 @@ class IIOAppServer extends EventEmitter {
     this._waitForModule('gateway').then(gateway => {
       gateway.gateway._waitForServiceAPI(this._config.data.service)
         .then(async dataService => {
-          try {
-            for (let collection of this._config.data.collections) {
+          for (let collection of this._config.data.collections) {
+            try {
               await dataService.addDatum(collection.name, collection.options, {
                 $privileged: true,
                 $userId: null
               })
-            }
-          } catch (err) {
-            if (!('' + err).match('datum already defined')) {
-              this.logger.error(err, 'failed to add datum')
+            } catch (err) {
+              if (!('' + err).match('datum already defined')) {
+                this.logger.error(err, 'failed to add datum')
+              }
             }
           }
         }).catch(err => {
