@@ -414,16 +414,17 @@ class IIOAppServer extends EventEmitter {
       }
 
       try {
-        let packageDef = JSON.parse(fs.readFileSync(path.join(__dirname, '../package.json'), 'utf8'))
+        let packageDef = JSON.parse(fs.readFileSync(path.join(process.cwd(), 'package.json'), 'utf8'))
         let version = packageDef.version
         let name = packageDef.name
 
         console.log('--------------------------------------------------------------------------------')
         console.log('IIOS app [' + name + ':' + version + '] ready and serves path [' +
-          path2serve + '] on port [' + this._config.server.port + ']'
+          path2serve + '] on port [' + this._config.server.port + ']')
         console.log('--------------------------------------------------------------------------------')
       } catch (err) {
-        this.logger.error(err, 'failed to start')
+        this.logger.error(err, 'failed to start when reading the package info')
+        process.exit(1)
       }
     })
 
