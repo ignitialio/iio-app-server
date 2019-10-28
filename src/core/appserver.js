@@ -413,9 +413,18 @@ class IIOAppServer extends EventEmitter {
         throw new Error('' + err)
       }
 
-      console.log('-----------------------------\nSuperstatically ready for [' +
-        path2serve + '] on port [' +
-        this._config.server.port + ']\n-----------------------------')
+      try {
+        let packageDef = JSON.parse(fs.readFileSync(path.join(__dirname, '../package.json'), 'utf8'))
+        let version = packageDef.version
+        let name = packageDef.name
+
+        console.log('--------------------------------------------------------------------------------')
+        console.log('IIOS app [' + name + ':' + version + '] ready and serves path [' +
+          path2serve + '] on port [' + this._config.server.port + ']'
+        console.log('--------------------------------------------------------------------------------')
+      } catch (err) {
+        this.logger.error(err, 'failed to start')
+      }
     })
 
     // all done
