@@ -14,23 +14,20 @@ class Utils extends Module {
   }
 
   /* provide app info */
-  info() {
+  appInfo() {
     return new Promise((resolve, reject) => {
-      if (!this.appInfo) {
+      if (!this.packageJson) {
         let filepath = path.join(process.cwd(), 'package.json')
         fs.readFile(filepath, 'utf8', (err, result) => {
           if (err) {
             reject(err)
           } else {
-            this.appInfo = {
-              name: JSON.parse(result).name,
-              version: JSON.parse(result).version
-            }
-            resolve(this.appInfo)
+            this.packageJson = JSON.parse(result)
+            resolve(this.packageJson)
           }
         })
       } else {
-        resolve(this.appInfo)
+        resolve(this.packageJson)
       }
     })
   }
