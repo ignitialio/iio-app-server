@@ -69,7 +69,7 @@ class WSManager extends EventEmitter {
         if (data && data.name) {
           let filename = path.basename(data.name)
           try {
-            this.$app._minioClient.putObject(data.bucket, data.userId + '/' + filename, stream,
+            this.$app._minioClient.putObject(data.bucket, filename, stream,
               data.size, (err, etag) => {
                 if (err) {
                   socket.emit('ws:file:upload:result', {
@@ -83,9 +83,11 @@ class WSManager extends EventEmitter {
               })
           } catch (err) {
             this.logger.error(err, 'Minio client failed to put file')
+            socket.emit('ws:file:upload:result', { err: '' + err })
           }
         } else {
           this.logger.warn(data, 'File upload request but empty data')
+          socket.emit('ws:file:upload:result', { err: '' + err })
         }
       })
 

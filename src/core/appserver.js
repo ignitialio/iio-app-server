@@ -115,7 +115,7 @@ class IIOAppServer extends EventEmitter {
     let getObject = request => {
       return new Promise((resolve, reject) => {
         this._minioClient.getObject(bucket,
-          urlencode.decode(request.parameters.userid + '/' + request.parameters.filename),
+          urlencode.decode(request.parameters.filename),
           (err, readableStream) => {
             if (err) {
               reject(err)
@@ -126,7 +126,7 @@ class IIOAppServer extends EventEmitter {
       })
     }
 
-    this._rest.get('/uploads/:userid/:filename', async (request, content) => {
+    this._rest.get('/s3/:filename', async (request, content) => {
       let stream = null
       try {
         await this._checkRESTAccess(request.parameters.token)
@@ -514,9 +514,12 @@ class IIOAppServer extends EventEmitter {
   /* check REST access rights */
   _checkRESTAccess(token) {
     return new Promise((resolve, reject) => {
-      this.$data.users.checkToken({ token: token })
-        .then(() => resolve())
-        .catch(err => reject(err))
+      this._waitForModule('gateway').then(gateway => {
+        gateway.gateway._waitForServiceAPI('auth')
+          .then(async auth => {
+            resolve(await auth.authorize(token))
+          }).catch(err => { reject(err) })
+      }).catch(err => { reject(err) })
     })
   }
 }
