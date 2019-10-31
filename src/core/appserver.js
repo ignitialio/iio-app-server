@@ -376,12 +376,15 @@ class IIOAppServer extends EventEmitter {
 
     // Health API endpoint
     this._rest.get('/healthcheck', async (request, content) => {
-      let healthInfo = await this.$utils.info()
-      healthInfo.hostname = os.hostname()
-      healthInfo.cpus = os.cpus()
-      healthInfo.loadavg = os.loadavg()
-
-      return healthInfo
+      let info = await this.$utils.appInfo()
+      
+      return {
+        name: info.name,
+        version: info.version,
+        hostname: os.hostname(),
+        cpus: os.cpus(),
+        loadavg: os.loadavg()
+      }
     })
 
     // register data collections
