@@ -125,6 +125,8 @@ class APIGateway extends Service {
   _eventHandler(message) {
     // push to web client
     this._io.emit('service:event:' + message.meta.event, message.payload)
+    this._io.emit('_bson:service:event:' + message.meta.event,
+      this._gateway._connector.encoder.pack(message.payload))
   }
 
   /* clean up all bridges or selected subset only */

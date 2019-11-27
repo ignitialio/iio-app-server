@@ -1,6 +1,6 @@
 {
   "name": "@ignitial/iio-app-server",
-  "version": "5.2.9",
+  "version": "5.2.10",
   "description": "Ignitial.io Application server library",
   "author": "Victor Andritoiu <devandrito@gmail.com>",
   "repository": "git@gitlab.com:iio-core/iio-app-server.git",
@@ -9,7 +9,7 @@
     "lint": "eslint --ext .js src"
   },
   "dependencies": {
-    "@ignitial/iio-services": "^2.2.10",
+    "@ignitial/iio-services": "^2.2.13",
     "axios": "^0.19.0",
     "bcryptjs": "^2.4.3",
     "body-parser": "^1.19.0",
@@ -23,7 +23,7 @@
     "minio": "^7.0.12",
     "morgan": "^1.9.1",
     "nodemailer": "^6.3.1",
-    "pino": "^5.13.5",
+    "pino": "^5.14.0",
     "serve-static": "^1.14.1",
     "socket.io": "^2.3.0",
     "socket.io-stream": "^0.9.1",
