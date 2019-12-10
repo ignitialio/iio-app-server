@@ -76,7 +76,8 @@ class APIGateway extends Service {
       this._io.emit('service:proxy:' + token, response.data)
     } catch (err) {
       this._io.emit('service:proxy:' + token, { err: 'failed to fetch file' })
-      this.logger.error(err, 'failed to fetch file at url %s', url)
+      this.logger.warn('failed to fetch file at url %s', url)
+      this.logger.info(err, 'failed to fetch file at url %s', url)
     }
   }
 
@@ -97,7 +98,8 @@ class APIGateway extends Service {
       await this._gateway._waitForServiceAPI(serviceName)
 
       // ...when done, creates new unified service bridge
-      this._bridges[serviceName] = new Service(this._io, serviceInfo)
+      let isRemote = true
+      this._bridges[serviceName] = new Service(this._io, serviceInfo, isRemote)
       // IIOS gateway injection in each servic for inter-services calls
       this._bridges[serviceName].$gateway = this._gateway
 

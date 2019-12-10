@@ -8,11 +8,12 @@ const getAllMethods = utils.getAllMethods
 
 /* Unified service base class */
 class Service extends EventEmitter {
-  constructor(io, options) {
+  constructor(io, options, remote = false) {
     super()
 
     try {
       this._options = options || {}
+      this._options.isLocal = !remote
 
       // reference to the client WS
       this._io = io
@@ -50,6 +51,12 @@ class Service extends EventEmitter {
 
   get name() {
     return this._name
+  }
+
+  isLocal() {
+    return new Promise((resolve, reject) => {
+      resolve(this._options.isLocal)
+    })
   }
 
   /* registers public method */
