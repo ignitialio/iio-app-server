@@ -19,13 +19,27 @@ class Config extends Service {
       if (o._unified) {
         cpy = o
       } else {
-        for (let e in o) {
-          if (o[e] && o[e]._unified) {
-            cpy[e] = o[e]
-          } else if (typeof o[e] === 'object') {
-            let sub = check(o[e])
-            if (sub) {
-              cpy[e] = sub
+        if (Array.isArray(o)) {
+          cpy = []
+          for (let e = 0; e < o.length; e++) {
+            if (o[e] && o[e]._unified) {
+              cpy.push(o[e])
+            } else if (typeof o[e] === 'object') {
+              let sub = check(o[e])
+              if (sub) {
+                cpy.push(sub)
+              }
+            }
+          }
+        } else {
+          for (let e in o) {
+            if (o[e] && o[e]._unified) {
+              cpy[e] = o[e]
+            } else if (typeof o[e] === 'object') {
+              let sub = check(o[e])
+              if (sub) {
+                cpy[e] = sub
+              }
             }
           }
         }
