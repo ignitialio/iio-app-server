@@ -129,7 +129,10 @@ class IIOAppServer extends EventEmitter {
     this._rest.get('/s3/:filename', async (request, content) => {
       let stream = null
       try {
-        await this._checkRESTAccess(request.parameters.token)
+        if (!request.parameters.filename.match('_public')) {
+          await this._checkRESTAccess(request.parameters.token)
+        }
+
         stream = await getObject(request)
       } catch (err) {
         stream = err
